@@ -1,0 +1,23 @@
+﻿# Environment variables & secrets
+.env
+.env*.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+ENV/
+
+# Node.js
+node_modules/
+jarvis-desktop/node_modules/
+npm-debug.log*
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,14 @@
+{
+  "name": "jarvis-swarm-app",
+  "version": "1.0.0",
+  "description": "Desktop Interface for the God Mode Swarm",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "author": "Antigravity",
+  "license": "ISC",
+  "devDependencies": {
+    "electron": "^43.0.0"
+  }
+}
