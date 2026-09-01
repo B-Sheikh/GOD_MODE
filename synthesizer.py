@@ -51,17 +51,17 @@ async def synthesize_results(prompt: str, executed_tasks: list, session = None):
     
     # Fallback if synthesis call failed or returned empty
     if not formatted_summary or len(formatted_summary.strip()) < 30 or "Error" in formatted_summary[:20]:
-        sections = [f"## ⚡ GOD MODE Swarm Deliverable\n\n"]
+        sections = [f"## GOD MODE Swarm Deliverable\n\n"]
         for item in executed_tasks:
             task_title = item.get("task", "Task")
             res = item.get("result", "")
             cat = item.get("category", "General")
             if "data:image" in str(res):
-                sections.append(f"### 🎨 Visual Deliverable\n<img src=\"{res}\" alt=\"{task_title}\" />\n\n")
+                sections.append(f"### Visual Deliverable\n<img src=\"{res}\" alt=\"{task_title}\" />\n\n")
             elif "```" in str(res):
-                sections.append(f"### 💻 Technical Implementation\n{res}\n\n")
+                sections.append(f"### Technical Implementation\n{res}\n\n")
             else:
-                sections.append(f"### 🌐 {cat.title()} Specialist Output\n{res}\n\n")
+                sections.append(f"### {cat.title()} Specialist Output\n{res}\n\n")
         formatted_summary = "".join(sections)
     else:
         # Rehydrate image tokens with full image tags
@@ -69,7 +69,7 @@ async def synthesize_results(prompt: str, executed_tasks: list, session = None):
             if token in formatted_summary:
                 formatted_summary = formatted_summary.replace(token, img_tag)
             elif img_tag not in formatted_summary:
-                formatted_summary = f"{formatted_summary}\n\n### 🎨 Visual Deliverable\n{img_tag}\n"
+                formatted_summary = f"{formatted_summary}\n\n### Visual Deliverable\n{img_tag}\n"
     
     return {
         "synthesizer_model": used_model,

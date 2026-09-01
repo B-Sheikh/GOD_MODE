@@ -222,8 +222,8 @@ VALID_GEMINI_MODELS = [
 ]
 
 VALID_GROQ_MODELS = [
-    "qwen/qwen3.8-27b", "qwen/qwen3.6-27b", "openai/gpt-oss-20b",
-    "groq/compound", "groq/compound-mini", "allam-2-7b"
+    "allam-2-7b", "openai/gpt-oss-20b", "openai/gpt-oss-120b",
+    "groq/compound", "groq/compound-mini", "qwen/qwen3.6-27b", "qwen/qwen3.8-27b"
 ]
 
 OPENROUTER_FREE_FALLBACKS = [
@@ -259,7 +259,7 @@ async def call_gemini(model: str, prompt: str, system_message: str = "You are a 
                 "generationConfig": {"temperature": 0.7, "maxOutputTokens": 8192}
             }
             try:
-                timeout = aiohttp.ClientTimeout(total=25)
+                timeout = aiohttp.ClientTimeout(total=8)
                 async with sess.post(url, json=payload, timeout=timeout) as resp:
                     if resp.status == 200:
                         data = await resp.json()
@@ -271,7 +271,9 @@ async def call_gemini(model: str, prompt: str, system_message: str = "You are a 
                     else:
                         err = await resp.text()
                         print(f"[Gemini] Notice {resp.status} on {m}: {err[:120]}")
-                        if resp.status in [429, 503, 404]:
+                        if resp.status == 429:
+                            break # Key quota exceeded, immediately cascade to next provider
+                        if resp.status in [503, 404]:
                             continue
             except Exception as e:
                 print(f"[Gemini] Exception on {m}: {e}")
@@ -292,16 +294,17 @@ async def call_groq(model: str, prompt: str, system_message: str = "You are a he
         return ""
     
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-    models_to_try = [model] if model in VALID_GROQ_MODELS else ["qwen/qwen3.8-27b"]
-    for alt in ["qwen/qwen3.8-27b", "groq/compound", "qwen/qwen3.6-27b", "openai/gpt-oss-20b", "allam-2-7b"]:
+    models_to_try = [model] if model in VALID_GROQ_MODELS else ["allam-2-7b"]
+    for alt in ["allam-2-7b", "openai/gpt-oss-20b", "groq/compound", "groq/compound-mini"]:
         if alt not in models_to_try:
             models_to_try.append(alt)
     
-    approx_prompt_tokens = int(len(prompt.split()) * 1.4) + int(len(system_message.split()) * 1.4)
-    safe_max_tokens = max(512, min(3500, 5600 - approx_prompt_tokens))
+    approx_prompt_tokens = int(len(prompt.split()) * 1.3) + int(len(system_message.split()) * 1.3)
+    safe_max_tokens = min(1024, max(256, 1800 - approx_prompt_tokens))
 
     async def _post(sess: aiohttp.ClientSession):
         for m in models_to_try:
+            tokens_for_model = 768 if m == "allam-2-7b" else safe_max_tokens
             payload = {
                 "model": m,
                 "messages": [
@@ -309,10 +312,10 @@ async def call_groq(model: str, prompt: str, system_message: str = "You are a he
                     {"role": "user", "content": prompt}
                 ],
                 "temperature": 0.7,
-                "max_tokens": safe_max_tokens
+                "max_tokens": tokens_for_model
             }
             try:
-                timeout = aiohttp.ClientTimeout(total=20)
+                timeout = aiohttp.ClientTimeout(total=8)
                 async with sess.post(GROQ_URL, headers=headers, json=payload, timeout=timeout) as resp:
                     if resp.status == 200:
                         data = await resp.json()
@@ -322,7 +325,7 @@ async def call_groq(model: str, prompt: str, system_message: str = "You are a he
                     else:
                         err = await resp.text()
                         print(f"[Groq] Notice {resp.status} on {m}: {err[:120]}")
-                        if resp.status in [429, 413, 503, 404]:
+                        if resp.status in [429, 413, 503, 404, 400]:
                             continue
             except Exception as e:
                 print(f"[Groq] Exception on {m}: {e}")
@@ -351,7 +354,7 @@ async def call_openrouter(model: str, prompt: str, system_message: str = "You ar
     
     target_model = model if ":free" in model else f"{model}:free"
     models_to_try = [target_model] if target_model in OPENROUTER_FREE_FALLBACKS else []
-    for fb in OPENROUTER_FREE_FALLBACKS:
+    for fb in OPENROUTER_FREE_FALLBACKS[:2]:
         if fb not in models_to_try:
             models_to_try.append(fb)
 
@@ -365,7 +368,7 @@ async def call_openrouter(model: str, prompt: str, system_message: str = "You ar
                 ]
             }
             try:
-                timeout = aiohttp.ClientTimeout(total=15)
+                timeout = aiohttp.ClientTimeout(total=5)
                 async with sess.post(OPENROUTER_URL, headers=headers, json=payload, timeout=timeout) as response:
                     if response.status == 200:
                         data = await response.json()
@@ -494,7 +497,7 @@ async def call_huggingface_image(model_id: str, prompt: str, session: aiohttp.Cl
         </defs>
         <rect width="100%" height="100%" fill="#0a0e17" stroke="url(#g1)" stroke-width="2" rx="14"/>
         <circle cx="350" cy="130" r="50" fill="#131926" stroke="#00f0ff" stroke-width="2"/>
-        <text x="350" y="140" fill="#00f0ff" font-size="32" text-anchor="middle">🎨</text>
+        <text x="350" y="137" fill="#00f0ff" font-size="16" font-weight="bold" text-anchor="middle">IMAGE</text>
         <text x="350" y="210" fill="#ffffff" font-size="18" font-weight="bold" text-anchor="middle">Multi-Modal AI Vision Deliverable</text>
         <text x="350" y="240" fill="#94a3b8" font-size="13" text-anchor="middle">Prompt: &quot;{safe_p[:65]}...&quot;</text>
         <rect x="230" y="275" width="240" height="38" rx="8" fill="url(#g1)"/>
@@ -556,19 +559,19 @@ async def call_smart_llm(
             return res, model_id, "OpenRouter"
 
     # 3. Cross-Provider Fallback Cascade
-    # Try Gemini first (huge context & high reasoning)
+    # Try Groq (ultra fast 500+ tok/s)
+    if grq_key:
+        fallback_groq = "allam-2-7b" if category in ["coder", "code", "orchestrator"] else "openai/gpt-oss-20b"
+        res = await call_groq(fallback_groq, prompt, system_message, session=session)
+        if res and len(res.strip()) > 0:
+            return res, fallback_groq, "Groq (Swarm Fallback)"
+
+    # Try Gemini (huge context & high reasoning)
     if gem_key and not is_gemini_target:
         fallback_gem = "gemini-2.5-flash"
         res = await call_gemini(fallback_gem, prompt, system_message, session=session)
         if res and len(res.strip()) > 0:
             return res, fallback_gem, "Google Gemini (Swarm Fallback)"
-
-    # Try Groq (ultra fast 500+ tok/s)
-    if grq_key and not is_groq_target:
-        fallback_groq = "qwen/qwen3.8-27b" if category in ["coder", "code", "orchestrator"] else "groq/compound"
-        res = await call_groq(fallback_groq, prompt, system_message, session=session)
-        if res and len(res.strip()) > 0:
-            return res, fallback_groq, "Groq (Swarm Fallback)"
 
     # Try OpenRouter (open-source swarm models)
     if or_key and not is_openrouter_target:
@@ -596,7 +599,7 @@ def generate_smart_demo_response(category: str, prompt: str) -> str:
         parts = prompt.split("Expert Swarm Outputs:")
         if len(parts) > 1:
             raw_experts = parts[1].replace("Please generate the unified final output.", "").strip()
-            return f"## ⚡ GOD MODE Swarm Deliverable\n\n{raw_experts}"
+            return f"## GOD MODE Swarm Deliverable\n\n{raw_experts}"
 
     if category in ["coder", "code"]:
         return (
@@ -612,7 +615,7 @@ def generate_smart_demo_response(category: str, prompt: str) -> str:
             f"if __name__ == '__main__':\n"
             f"    asyncio.run(execute_task())\n"
             f"```\n\n"
-            f"> 💡 **Tip:** Add a 100% Free API Key (**Google Gemini**, **Groq**, or **OpenRouter**) in **Settings (⚙️)** to run live cloud models!"
+            f"> Tip: Add a 100% Free API Key (**Google Gemini**, **Groq**, or **OpenRouter**) in **Settings** to run live cloud models."
         )
     elif category in ["nlp", "translation"]:
         return (
@@ -621,15 +624,15 @@ def generate_smart_demo_response(category: str, prompt: str) -> str:
             f"- **Sentiment:** Positive / Constructive (Confidence: 94.2%)\n"
             f"- **Language Processing:** Multilingual Translation\n"
             f"- **Entities Identified:** Core Technology, Swarm Agents, Multi-Modal Systems\n\n"
-            f"> 💡 **Tip:** Add your free API key in Settings (⚙️) to unleash live translation and NLP parsing."
+            f"> Tip: Add your free API key in Settings to unleash live translation and NLP parsing."
         )
     elif category in ["creative", "story"]:
         return (
-            f"### The Neon Horizon\n\n"
-            f"The digital rain fell across the cybernetic skyline as the 75-node swarm awakened. "
-            f"Lines of illuminated code coursed through the neural conduits, resolving complex directives in fractions of a second.\n\n"
+            f"### The Digital Skyline\n\n"
+            f"The network pulses as the 75-node swarm awakened. "
+            f"Lines of structured logic coursed through the neural conduits, resolving complex directives in fractions of a second.\n\n"
             f"*{prompt}*\n\n"
-            f"> 💡 **Tip:** Configure your free Groq, Gemini, or OpenRouter keys in Settings (⚙️) for deep creative storytelling!"
+            f"> Tip: Configure your free Groq, Gemini, or OpenRouter keys in Settings for deep creative storytelling."
         )
     else:
         return (
@@ -637,7 +640,7 @@ def generate_smart_demo_response(category: str, prompt: str) -> str:
             f"The multi-agent swarm has decomposed your directive into modular domain tasks.\n\n"
             f"1. **Task Execution Plan:** Multi-agent pipeline initialized successfully.\n"
             f"2. **Specialist Allocation:** Assigned across Reasoning, Coding, and Synthesis nodes.\n"
-            f"3. **Next Step:** To connect live cloud models at zero cost, add a **Google Gemini** (`aistudio.google.com`) or **Groq** (`console.groq.com`) free key in **Settings (⚙️)**."
+            f"3. **Next Step:** To connect live cloud models at zero cost, add a **Google Gemini** (`aistudio.google.com`) or **Groq** (`console.groq.com`) free key in **Settings**."
         )
 
 
