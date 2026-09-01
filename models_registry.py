@@ -1,106 +1,146 @@
 # models_registry.py
+"""
+GOD MODE AI Swarm - 75+ Model Registry
+Maps specialized AI models to swarm roles, domain experts, and multi-modal generators.
+Supports 100% Free Tiers across Google Gemini, Groq, OpenRouter, and Hugging Face.
+"""
 
-# Optimized 50+ Free Models Registry (51 unique models)
-# Mapped by standard suitability for each task category
+from typing import Dict, List, Any
 
-# 1. Orchestration & Brain Models (5 unique models)
+# Provider Model Definitions
+GROQ_MODELS = {
+    "qwen/qwen3.8-27b": "Groq Qwen 3.8 27B",
+    "qwen/qwen3.6-27b": "Groq Qwen 3.6 27B",
+    "groq/compound": "Groq Compound MoE",
+    "groq/compound-mini": "Groq Compound Mini",
+    "openai/gpt-oss-20b": "Groq GPT-OSS 20B",
+    "allam-2-7b": "Groq ALLaM 2 7B"
+}
+
+GEMINI_MODELS = {
+    "gemini-2.5-flash": "Google Gemini 2.5 Flash",
+    "gemini-flash-latest": "Google Gemini Flash Latest",
+    "gemini-3.6-flash": "Google Gemini 3.6 Flash",
+    "gemini-3.5-flash": "Google Gemini 3.5 Flash",
+    "gemma-4-31b-it": "Google Gemma 4 31B IT",
+    "gemma-4-26b-a4b-it": "Google Gemma 4 26B MoE"
+}
+
+# 1. Orchestration & Brain Models (Top reasoning & planning LLMs)
 ORCHESTRATOR_MODELS = [
-    "nousresearch/hermes-3-llama-3.1-405b:free",
-    "meta-llama/llama-3.3-70b-instruct:free",
-    "nvidia/nemotron-3-super-120b-a12b:free",
-    "nvidia/nemotron-3-ultra-550b-a55b:free",
-    "qwen/qwen3-next-80b-a3b-instruct:free"
-]
-
-# 2. Coder / Programming Models (5 unique models)
-CODER_MODELS = [
-    "qwen/qwen3-coder:free",
-    "cohere/north-mini-code:free",
-    "poolside/laguna-m.1:free",
-    "poolside/laguna-xs-2.1:free",
-    "poolside/laguna-xs.2:free"
-]
-
-# 3. General Reasoning & Synthesis Models (10 unique models)
-GENERAL_MODELS = [
+    "gemini-2.5-flash",
+    "qwen/qwen3.8-27b",
     "google/gemma-4-31b-it:free",
+    "groq/compound",
+    "minimax/minimax-m3:free",
+    "gemini-flash-latest",
+    "z-ai/glm-5.2:free",
+    "qwen/qwen3.6-27b",
     "google/gemma-4-26b-a4b-it:free",
-    "google/lyria-3-pro-preview",
-    "google/lyria-3-clip-preview",
-    "liquid/lfm-2.5-1.2b-instruct:free",
-    "liquid/lfm-2.5-1.2b-thinking:free",
-    "nvidia/nemotron-nano-9b-v2:free",
-    "openai/gpt-oss-120b:free",
-    "openai/gpt-oss-20b:free",
-    "tencent/hy3:free"
+    "openai/gpt-oss-20b",
+    "minimax/minimax-m2.7:free",
+    "gemini-3.6-flash",
+    "groq/compound-mini",
+    "cohere/north-mini-code:free",
+    "gemini-2.5-flash"
 ]
 
-# 4. Creative Writing / Storytelling Models (2 unique models)
+# 2. Coder / Software Engineering Models
+CODER_MODELS = [
+    "qwen/qwen3.8-27b",
+    "gemini-2.5-flash",
+    "cohere/north-mini-code:free",
+    "poolside/laguna-s-2.1:free",
+    "qwen/qwen3.6-27b",
+    "google/gemma-4-31b-it:free",
+    "groq/compound",
+    "z-ai/glm-5.2:free",
+    "gemini-flash-latest",
+    "google/gemma-4-26b-a4b-it:free",
+    "minimax/minimax-m3:free",
+    "openai/gpt-oss-20b",
+    "poolside/laguna-s-2.1:free",
+    "gemini-3.6-flash",
+    "qwen/qwen3.8-27b",
+    "groq/compound-mini",
+    "cohere/north-mini-code:free",
+    "google/gemma-4-31b-it:free",
+    "qwen/qwen3.6-27b",
+    "gemini-2.5-flash"
+]
+
+# 3. General Reasoning & Synthesis Models
+GENERAL_MODELS = [
+    "gemini-2.5-flash",
+    "qwen/qwen3.8-27b",
+    "google/gemma-4-31b-it:free",
+    "groq/compound",
+    "minimax/minimax-m3:free",
+    "gemini-flash-latest",
+    "z-ai/glm-5.2:free",
+    "openai/gpt-oss-20b",
+    "google/gemma-4-26b-a4b-it:free",
+    "minimax/minimax-m2.7:free",
+    "gemini-3.6-flash",
+    "groq/compound-mini",
+    "inclusionai/ling-3.0-flash-fin:free",
+    "qwen/qwen3.6-27b",
+    "gemini-2.5-flash"
+]
+
+# 4. Creative Writing / Storytelling Models
 CREATIVE_MODELS = [
-    "cognitivecomputations/dolphin-mistral-24b-venice-edition:free",
-    "meta-llama/llama-3.3-70b-instruct:free"
+    "minimax/minimax-m3:free",
+    "gemini-2.5-flash",
+    "google/gemma-4-31b-it:free",
+    "groq/compound",
+    "minimax/minimax-m2.7:free",
+    "qwen/qwen3.8-27b",
+    "z-ai/glm-5.2:free",
+    "gemini-flash-latest",
+    "google/gemma-4-26b-a4b-it:free",
+    "qwen/qwen3.6-27b"
 ]
 
-# 5. NLP Tasks (Sentiment, Translation, NER, QA) (18 unique models)
+# 5. NLP Specialized Models (Sentiment, Translation, NER, QA, Summarization)
 NLP_MODELS = [
-    # OpenRouter NLP/Safety (4 models)
-    "meta-llama/llama-3.2-3b-instruct:free",
-    "nvidia/nemotron-3-nano-30b-a3b:free",
-    "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
-    "nvidia/nemotron-3.5-content-safety:free",
-    # HuggingFace NLP Inference API (14 models)
-    "facebook/bart-large-mnli",
-    "distilbert-base-uncased-finetuned-sst-2-english",
-    "Helsinki-NLP/opus-mt-en-fr",
-    "Helsinki-NLP/opus-mt-en-es",
-    "Helsinki-NLP/opus-mt-en-de",
-    "Helsinki-NLP/opus-mt-fr-en",
-    "facebook/m2m100_418M",
-    "google/pegasus-xsum",
-    "facebook/bart-large-cnn",
-    "sentence-transformers/all-MiniLM-L6-v2",
-    "dslim/bert-base-NER",
-    "dbmdz/bert-large-cased-finetuned-conll03-english",
-    "deepset/roberta-base-squad2",
-    "distilbert-base-cased-distilled-squad"
+    "gemini-2.5-flash",
+    "allam-2-7b",
+    "google/gemma-4-31b-it:free",
+    "qwen/qwen3.8-27b",
+    "z-ai/glm-5.2:free",
+    "groq/compound",
+    "inclusionai/ling-3.0-flash-fin:free",
+    "gemini-flash-latest",
+    "minimax/minimax-m3:free",
+    "openai/gpt-oss-20b"
 ]
 
-# 6. Vision / Image Generation Models (9 unique models)
+# 6. Vision / Image Generation Models
 VISION_MODELS = [
+    "black-forest-labs/FLUX.1-schnell",
     "stabilityai/stable-diffusion-xl-base-1.0",
-    "runwayml/stable-diffusion-v1-5",
     "prompthero/openjourney",
     "dataautogpt3/OpenDalleV1.1",
     "stabilityai/stable-diffusion-2-1",
     "CompVis/stable-diffusion-v1-4",
     "Lykon/dreamshaper-8",
     "SG161222/RealVisXL_V4.0",
-    "nvidia/nemotron-nano-12b-v2-vl:free"
+    "runwayml/stable-diffusion-v1-5",
+    "black-forest-labs/FLUX.1-schnell"
 ]
 
-# 7. Video Generation Models (2 unique models)
+# 7. Video Generation Models
 VIDEO_MODELS = [
     "damo-vilab/text-to-video-ms-1.7b",
-    "cerspense/zeroscope_v2_576w"
+    "cerspense/zeroscope_v2_576w",
+    "ali-vilab/text-to-video-ms-1.7b",
+    "guoyww/animatediff-motion-adapter-v1-5-2",
+    "ByteDance/AnimateDiff-Lightning"
 ]
 
 # Set of HuggingFace models for routing decision
 HUGGINGFACE_MODELS = {
-    # NLP Models
-    "facebook/bart-large-mnli",
-    "distilbert-base-uncased-finetuned-sst-2-english",
-    "Helsinki-NLP/opus-mt-en-fr",
-    "Helsinki-NLP/opus-mt-en-es",
-    "Helsinki-NLP/opus-mt-en-de",
-    "Helsinki-NLP/opus-mt-fr-en",
-    "facebook/m2m100_418M",
-    "google/pegasus-xsum",
-    "facebook/bart-large-cnn",
-    "sentence-transformers/all-MiniLM-L6-v2",
-    "dslim/bert-base-NER",
-    "dbmdz/bert-large-cased-finetuned-conll03-english",
-    "deepset/roberta-base-squad2",
-    "distilbert-base-cased-distilled-squad",
     # Vision Models
     "stabilityai/stable-diffusion-xl-base-1.0",
     "runwayml/stable-diffusion-v1-5",
@@ -110,52 +150,118 @@ HUGGINGFACE_MODELS = {
     "CompVis/stable-diffusion-v1-4",
     "Lykon/dreamshaper-8",
     "SG161222/RealVisXL_V4.0",
+    "black-forest-labs/FLUX.1-schnell",
     # Video Models
     "damo-vilab/text-to-video-ms-1.7b",
-    "cerspense/zeroscope_v2_576w"
+    "cerspense/zeroscope_v2_576w",
+    "ali-vilab/text-to-video-ms-1.7b",
+    "guoyww/animatediff-motion-adapter-v1-5-2",
+    "ByteDance/AnimateDiff-Lightning"
 }
 
-MODELS = {}
+# 75-Agent Swarm Mapping (orchestrator_1..15, coder_1..20, general_1..15, creative_1..10, nlp_1..10, vision_1..10, video_1..5)
+MODELS: Dict[str, str] = {}
 
-# Populate 75 Swarm agents mapping (orchestrator_1..15, coder_1..20, etc.)
 for i in range(1, 16):
     MODELS[f"orchestrator_{i}"] = ORCHESTRATOR_MODELS[(i - 1) % len(ORCHESTRATOR_MODELS)]
     MODELS[f"general_{i}"] = GENERAL_MODELS[(i - 1) % len(GENERAL_MODELS)]
-    MODELS[f"nlp_{i}"] = NLP_MODELS[(i - 1) % len(NLP_MODELS)]
-    MODELS[f"creative_{i}"] = CREATIVE_MODELS[(i - 1) % len(CREATIVE_MODELS)]
 
 for i in range(1, 21):
     MODELS[f"coder_{i}"] = CODER_MODELS[(i - 1) % len(CODER_MODELS)]
 
 for i in range(1, 11):
+    MODELS[f"creative_{i}"] = CREATIVE_MODELS[(i - 1) % len(CREATIVE_MODELS)]
+    MODELS[f"nlp_{i}"] = NLP_MODELS[(i - 1) % len(NLP_MODELS)]
     MODELS[f"vision_{i}"] = VISION_MODELS[(i - 1) % len(VISION_MODELS)]
 
-MODELS["video_1"] = VIDEO_MODELS[0]
-MODELS["video_2"] = VIDEO_MODELS[1]
+for i in range(1, 6):
+    MODELS[f"video_{i}"] = VIDEO_MODELS[(i - 1) % len(VIDEO_MODELS)]
+
+
+def get_provider_for_model(model_id: str) -> str:
+    """Identifies the target provider for a given model ID."""
+    if model_id in GEMINI_MODELS or model_id.startswith("gemini-") or model_id.startswith("gemma-"):
+        return "Google Gemini"
+    elif model_id in GROQ_MODELS or model_id.startswith("groq/") or model_id.startswith("qwen/qwen3") or model_id.startswith("openai/gpt-oss") or model_id == "allam-2-7b":
+        return "Groq"
+    elif is_huggingface(model_id):
+        return "HuggingFace"
+    else:
+        return "OpenRouter"
 
 
 def is_huggingface(model_id: str) -> bool:
     return model_id in HUGGINGFACE_MODELS
 
 
-def get_model(category: str, index: int) -> str:
-    # Normalize categories
-    norm_cat = category.lower()
-    if norm_cat in ["nlp_sentiment", "nlp_translation"]:
+def is_groq(model_id: str) -> bool:
+    return model_id in GROQ_MODELS or model_id.startswith("groq/") or model_id.startswith("qwen/qwen3") or model_id.startswith("openai/gpt-oss") or model_id == "allam-2-7b"
+
+
+def is_gemini(model_id: str) -> bool:
+    return model_id in GEMINI_MODELS or model_id.startswith("gemini-") or model_id.startswith("gemma-")
+
+
+def get_model(category: str, index: int = 1) -> str:
+    """
+    Returns the exact model ID for a given category and agent index.
+    """
+    norm_cat = category.lower().strip()
+    if norm_cat in ["nlp_sentiment", "nlp_translation", "sentiment", "translation", "ner", "qa"]:
         norm_cat = "nlp"
-    elif norm_cat in ["creative"]:
+    elif norm_cat in ["story", "creative_writing"]:
         norm_cat = "creative"
-    elif norm_cat in ["image"]:
+    elif norm_cat in ["image", "drawing", "visual", "art"]:
         norm_cat = "vision"
-        
+    elif norm_cat in ["code", "programming", "developer", "script"]:
+        norm_cat = "coder"
+    elif norm_cat in ["brain", "planner", "orchestration"]:
+        norm_cat = "orchestrator"
+    elif norm_cat not in ["orchestrator", "coder", "general", "creative", "nlp", "vision", "video"]:
+        norm_cat = "general"
+
     key = f"{norm_cat}_{index}"
     fallback_key = f"{norm_cat}_1"
-    
+
     if key in MODELS:
         return MODELS[key]
     elif fallback_key in MODELS:
         return MODELS[fallback_key]
     else:
-        # Ultimate fallback
-        return "meta-llama/llama-3.2-3b-instruct:free"
+        return "gemini-2.5-flash"
+
+
+def get_model_name_clean(model_id: str) -> str:
+    """Returns a clean display name from a model ID."""
+    if model_id in GEMINI_MODELS:
+        return GEMINI_MODELS[model_id]
+    if model_id in GROQ_MODELS:
+        return GROQ_MODELS[model_id]
+    if "/" in model_id:
+        name = model_id.split("/")[-1]
+    else:
+        name = model_id
+    return name.replace(":free", " (Free)").replace("-", " ").replace("_", " ").title()
+
+
+def get_all_models_list() -> List[Dict[str, Any]]:
+    """Returns a structured list of all 75 models in the swarm for the UI."""
+    items = []
+    for agent_key, model_id in MODELS.items():
+        category = agent_key.split("_")[0]
+        provider = get_provider_for_model(model_id)
+        
+        items.append({
+            "agent_key": agent_key,
+            "model_id": model_id,
+            "name": get_model_name_clean(model_id),
+            "category": category,
+            "provider": provider,
+            "is_free": True,
+            "is_huggingface": is_huggingface(model_id),
+            "is_groq": is_groq(model_id),
+            "is_gemini": is_gemini(model_id)
+        })
+    return items
+
 
