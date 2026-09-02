@@ -7,28 +7,31 @@ from models_registry import get_model, is_huggingface, get_model_name_clean, get
 
 
 def heuristic_fallback_breakdown(prompt: str) -> List[Dict[str, str]]:
-    """Heuristic fallback to decompose a prompt into specialized swarm tasks."""
+    """Smart heuristic fallback to decompose a prompt into specialized swarm tasks."""
     tasks = []
     p_lower = prompt.lower()
     
     # Check for code requests
-    if any(k in p_lower for k in ["code", "python", "javascript", "script", "function", "api", "html", "css", "program", "app", "sql", "backend", "fastapi"]):
-        tasks.append({"task": f"Implement the complete, production-grade code for: {prompt}", "category": "coder"})
+    if any(k in p_lower for k in ["code", "python", "javascript", "typescript", "script", "function", "api", "html", "css", "program", "app", "sql", "backend", "fastapi", "rust", "go", "algorithm"]):
+        tasks.append({"task": f"Implement the complete, production-grade code and system design for: {prompt}", "category": "coder"})
     
     # Check for visual / image requests
-    if any(k in p_lower for k in ["image", "picture", "draw", "visualize", "art", "generate an image", "logo", "wallpaper", "scene", "illustration"]):
-        tasks.append({"task": f"Generate visual imagery and creative artwork for: {prompt}", "category": "vision"})
+    if any(k in p_lower for k in ["image", "picture", "draw", "visualize", "art", "generate an image", "logo", "wallpaper", "scene", "illustration", "visuals"]):
+        tasks.append({"task": f"Generate visual imagery and creative artwork prompt for: {prompt}", "category": "vision"})
         
     # Check for creative / story requests
     if any(k in p_lower for k in ["story", "cyberpunk", "narrative", "essay", "poem", "fiction", "novel", "lore"]):
         tasks.append({"task": f"Write the rich narrative and creative story for: {prompt}", "category": "creative"})
         
     # Check for translation or NLP tasks
-    if any(k in p_lower for k in ["translate", "french", "spanish", "german", "sentiment", "summarize", "ner", "analysis", "nlp"]):
+    if any(k in p_lower for k in ["translate", "french", "spanish", "german", "sentiment", "summarize", "ner", "analysis", "nlp", "extract"]):
         tasks.append({"task": f"Perform language translation, sentiment analysis, and text extraction for: {prompt}", "category": "nlp"})
         
     if not tasks:
-        tasks.append({"task": prompt, "category": "general"})
+        # Balanced dual-perspective breakdown for general directives
+        tasks.append({"task": f"Deep structural analysis, architectural framework, and core principles of: {prompt}", "category": "general"})
+        if any(w in p_lower for w in ["how", "build", "create", "implement", "design", "make", "setup"]):
+            tasks.append({"task": f"Technical implementation, code examples, and step-by-step methodology for: {prompt}", "category": "coder"})
         
     return tasks
 
@@ -41,22 +44,27 @@ async def analyze_prompt(prompt: str, session = None) -> Tuple[str, str, List[Di
     brain_model = get_model("orchestrator", 1)
     
     system_prompt = '''You are the Chief Brain Orchestrator of the GOD MODE 75-Model AI Swarm.
-Your task is to analyze the user's request, decompose it into 1 to 4 highly focused subtasks, and assign each to a specialist category.
+Your task is to analyze the user's request and decompose it into 1 to 4 highly focused, parallel specialist subtasks.
 
 Available specialist categories:
-- "coder": Programming, algorithms, scripts, system architecture, debugging, API design.
-- "creative": Creative writing, storytelling, world-building, marketing copy, prose.
-- "vision": Visual descriptions, multi-modal art, and image generation prompts.
-- "nlp": Language translation, sentiment analysis, entity extraction, data summarization.
-- "general": Deep reasoning, mathematical explanation, factual answers, analysis.
-- "video": Video prompt generation and scene direction.
+- "coder": Complete software implementations, scripts, algorithms, API design, system architecture.
+- "creative": Engaging narratives, speculative fiction, storytelling, world-building, creative prose.
+- "vision": Visual scene description & diffusion prompt generation for multi-modal art (use when imagery is requested or enhances the deliverable).
+- "nlp": Language translation, sentiment extraction, entity recognition, text summarization.
+- "general": Deep reasoning, technical breakdown, mathematical explanation, architectural analysis.
+- "video": Scene choreography, storyboard timeline, video generation prompt.
 
-Return ONLY a valid JSON array of objects with "task" and "category" keys.
+Rules:
+1. Align with the user's intent:
+   - If the user directive requests multiple deliverables (e.g. code + translation + story + image), decompose into distinct subtasks.
+   - If the user directive is single-focused (e.g. purely asking for a Python script or system design), decompose into complementary technical modules (e.g. Core Implementation, Architecture/Configuration, Test Suite/Benchmark) without inventing unrelated tasks.
+2. Formulate each subtask to be self-contained and descriptive, specifying the concrete deliverable the specialist must produce.
+3. Return ONLY a valid JSON array of objects with "task" and "category" keys.
 Example format:
 [
-  {"task": "Write a Python web scraper using BeautifulSoup", "category": "coder"},
-  {"task": "Translate the scraped summary into French", "category": "nlp"},
-  {"task": "Write a cyberpunk hacker story about the data", "category": "creative"}
+  {"task": "Write a production-grade Python web scraper using BeautifulSoup and aiohttp", "category": "coder"},
+  {"task": "Provide French translation of sample scraped headlines with linguistic sentiment analysis", "category": "nlp"},
+  {"task": "Write an atmospheric cyberpunk story about discovering this data", "category": "creative"}
 ]'''
     
     raw_response, used_model, provider = await call_smart_llm(
@@ -123,17 +131,52 @@ async def execute_task(task_obj: dict, user_prompt: str, task_index: int = 1, se
                 response = str(res_data)
             provider_name = "HuggingFace"
         else:
+            # Domain-specific specialist system instructions
+            if category in ["coder", "code"]:
+                role_guidance = (
+                    "You are an elite Principal Software Engineer. "
+                    "Deliver 100% COMPLETE, RUNNABLE, production-ready code with clean imports, structured functions/classes, "
+                    "type annotations, robust error handling, and helpful comments. "
+                    "CRITICAL: Always format code inside clean markdown code blocks with explicit language identifiers (e.g. ```python, ```javascript, ```bash). "
+                    "NEVER truncate, NEVER write '# TODO' or '# ...rest of code'. "
+                    "CRITICAL: You do NOT have terminal/tool access. NEVER output tool calling XML (`<tool_call>`), `<function=...>`, or exploratory thoughts. Deliver the pure code and direct technical explanations immediately."
+                )
+            elif category in ["nlp", "translation"]:
+                role_guidance = (
+                    "You are an elite Computational Linguist and NLP Specialist. "
+                    "Provide thorough, high-fidelity translations, sentiment analysis, entity extraction, or text analytics. "
+                    "If translating or analyzing content derived from the user request, synthesize realistic domain samples and provide accurate, natural target translations. "
+                    "Format with structured markdown sections, tables for translations/sentiment metrics, and bullet points. Deliver directly with no conversational meta-dialogue."
+                )
+            elif category in ["creative", "story"]:
+                role_guidance = (
+                    "You are an acclaimed creative author. "
+                    "Craft vivid, atmospheric narrative prose with rich sensory details, memorable characters, and crisp pacing. "
+                    "Use markdown typography, scene dividers (`---`), and formatting for maximum narrative impact. Deliver the story directly without preamble."
+                )
+            elif category in ["vision", "video"]:
+                role_guidance = (
+                    "You are a Multi-Modal AI Visual Director. "
+                    "Provide an ultra-detailed scene composition, artistic style, lighting parameters, color palettes, and production notes. Deliver directly in clean markdown."
+                )
+            else:
+                role_guidance = (
+                    "You are a Senior Principal AI Scientist and Systems Architect. "
+                    "Deliver rigorous, deep reasoning, structured architectural blueprints, trade-off comparisons in markdown tables, and authoritative conclusions."
+                )
+
             system_prompt = (
                 f"You are Agent {agent_key}, an elite world-class specialist in '{category}'.\n"
+                f"{role_guidance}\n\n"
                 f"Overall User Request: '{user_prompt}'\n"
                 f"Your Dedicated Subtask: '{task_prompt}'\n\n"
-                "Instructions:\n"
-                "1. Provide a comprehensive, in-depth, production-ready deliverable.\n"
-                "2. If writing code, provide COMPLETE, RUNNABLE code with clean imports, structure, comments, and error handling. NEVER truncate or write placeholders (no '# TODO' or '# ...rest of code').\n"
-                "3. If writing narratives, translation, or analysis, deliver rich, high-quality, articulate prose.\n"
-                "4. Deliver your work directly with high authority and clarity."
+                "Formatting Guidelines:\n"
+                "- Structure your answer with clear markdown headings (##, ###).\n"
+                "- Use markdown tables (| Col 1 | Col 2 |) for structured comparisons or parameters.\n"
+                "- Keep all code blocks fully self-contained and runnable.\n"
+                "- Deliver your deliverable directly with zero fluff."
             )
-            specialist_prompt = f"Primary Subtask Directive: {task_prompt}\n\nFull User Context: {user_prompt}"
+            specialist_prompt = f"Dedicated Subtask Directive: {task_prompt}\n\nFull User Context: {user_prompt}\n\nPlease generate the comprehensive deliverable:"
             response, used_model, provider_name = await call_smart_llm(
                 model_id=model_id,
                 prompt=specialist_prompt,

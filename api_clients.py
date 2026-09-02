@@ -1,4 +1,5 @@
 import os
+import re
 import aiohttp
 import asyncio
 import base64
@@ -217,25 +218,36 @@ async def test_huggingface_connection(token: Optional[str] = None) -> Tuple[bool
 # ==============================================================================
 
 VALID_GEMINI_MODELS = [
-    "gemini-2.5-flash", "gemini-3.6-flash", "gemini-3.5-flash", "gemini-flash-latest",
+    "gemini-2.5-flash", "gemini-2.5-pro", "gemini-3.6-flash", "gemini-3.5-flash", "gemini-flash-latest",
     "gemini-3.1-pro-preview", "gemma-4-31b-it", "gemma-4-26b-a4b-it"
 ]
 
 VALID_GROQ_MODELS = [
-    "allam-2-7b", "openai/gpt-oss-20b", "openai/gpt-oss-120b",
-    "groq/compound", "groq/compound-mini", "qwen/qwen3.6-27b", "qwen/qwen3.8-27b"
+    "openai/gpt-oss-120b", "qwen/qwen3.8-27b", "openai/gpt-oss-20b",
+    "groq/compound", "groq/compound-mini", "qwen/qwen3.6-27b", "allam-2-7b"
 ]
 
 OPENROUTER_FREE_FALLBACKS = [
-    "google/gemma-4-31b-it:free",
-    "minimax/minimax-m3:free",
-    "google/gemma-4-26b-a4b-it:free",
-    "z-ai/glm-5.2:free",
+    "nvidia/nemotron-3.5-lightning:free",
     "cohere/north-mini-code:free",
-    "poolside/laguna-s-2.1:free",
-    "minimax/minimax-m2.7:free",
+    "minimax/minimax-m3:free",
     "inclusionai/ling-3.0-flash-fin:free"
 ]
+
+
+def sanitize_model_output(text: str) -> str:
+    """Cleans model outputs from internal reasoning tags, tool hallucination, or thinking tags."""
+    if not text:
+        return ""
+    # Strip <think>...</think>
+    text = re.sub(r'<think>[\s\S]*?</think>', '', text, flags=re.IGNORECASE)
+    # Strip <thought>...</thought>
+    text = re.sub(r'<thought>[\s\S]*?</thought>', '', text, flags=re.IGNORECASE)
+    # Strip <tool_call>...</tool_call>
+    text = re.sub(r'<tool_call>[\s\S]*?</tool_call>', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'<function=[\s\S]*?</function>', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'<tool_response>[\s\S]*?</tool_response>', '', text, flags=re.IGNORECASE)
+    return text.strip()
 
 
 async def call_gemini(model: str, prompt: str, system_message: str = "You are a helpful AI.", session: aiohttp.ClientSession = None) -> str:
@@ -246,7 +258,7 @@ async def call_gemini(model: str, prompt: str, system_message: str = "You are a 
     
     model_clean = model.replace("models/", "")
     models_to_try = [model_clean] if model_clean in VALID_GEMINI_MODELS else ["gemini-2.5-flash"]
-    for alt in ["gemini-2.5-flash", "gemini-3.6-flash", "gemini-3.5-flash"]:
+    for alt in ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-3.6-flash", "gemini-3.5-flash"]:
         if alt not in models_to_try:
             models_to_try.append(alt)
 
@@ -259,7 +271,7 @@ async def call_gemini(model: str, prompt: str, system_message: str = "You are a 
                 "generationConfig": {"temperature": 0.7, "maxOutputTokens": 8192}
             }
             try:
-                timeout = aiohttp.ClientTimeout(total=8)
+                timeout = aiohttp.ClientTimeout(total=20, connect=6)
                 async with sess.post(url, json=payload, timeout=timeout) as resp:
                     if resp.status == 200:
                         data = await resp.json()
@@ -267,7 +279,7 @@ async def call_gemini(model: str, prompt: str, system_message: str = "You are a 
                         if candidates:
                             parts = candidates[0].get("content", {}).get("parts", [])
                             if parts:
-                                return parts[0].get("text", "")
+                                return sanitize_model_output(parts[0].get("text", ""))
                     else:
                         err = await resp.text()
                         print(f"[Gemini] Notice {resp.status} on {m}: {err[:120]}")
@@ -276,7 +288,7 @@ async def call_gemini(model: str, prompt: str, system_message: str = "You are a 
                         if resp.status in [503, 404]:
                             continue
             except Exception as e:
-                print(f"[Gemini] Exception on {m}: {e}")
+                print(f"[Gemini] Exception on {m}: {type(e).__name__} {e}")
                 continue
         return ""
 
@@ -294,17 +306,17 @@ async def call_groq(model: str, prompt: str, system_message: str = "You are a he
         return ""
     
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-    models_to_try = [model] if model in VALID_GROQ_MODELS else ["allam-2-7b"]
-    for alt in ["allam-2-7b", "openai/gpt-oss-20b", "groq/compound", "groq/compound-mini"]:
+    models_to_try = [model] if model in VALID_GROQ_MODELS else ["openai/gpt-oss-120b", "qwen/qwen3.8-27b"]
+    for alt in ["openai/gpt-oss-120b", "qwen/qwen3.8-27b", "openai/gpt-oss-20b", "groq/compound"]:
         if alt not in models_to_try:
             models_to_try.append(alt)
-    
+
     approx_prompt_tokens = int(len(prompt.split()) * 1.3) + int(len(system_message.split()) * 1.3)
-    safe_max_tokens = min(1024, max(256, 1800 - approx_prompt_tokens))
+    safe_max_tokens = min(2048, max(256, 3500 - approx_prompt_tokens))
 
     async def _post(sess: aiohttp.ClientSession):
         for m in models_to_try:
-            tokens_for_model = 768 if m == "allam-2-7b" else safe_max_tokens
+            tokens_for_model = 1024 if m == "allam-2-7b" else safe_max_tokens
             payload = {
                 "model": m,
                 "messages": [
@@ -315,20 +327,36 @@ async def call_groq(model: str, prompt: str, system_message: str = "You are a he
                 "max_tokens": tokens_for_model
             }
             try:
-                timeout = aiohttp.ClientTimeout(total=8)
+                timeout = aiohttp.ClientTimeout(total=15, connect=5)
                 async with sess.post(GROQ_URL, headers=headers, json=payload, timeout=timeout) as resp:
                     if resp.status == 200:
                         data = await resp.json()
                         choices = data.get("choices", [])
                         if choices:
-                            return choices[0].get("message", {}).get("content", "")
+                            raw = choices[0].get("message", {}).get("content", "")
+                            return sanitize_model_output(raw)
+                    elif resp.status == 413:
+                        # Request Entity Too Large: payload exceeded TPM limit.
+                        # Retry once with conservative token limit
+                        retry_payload = dict(payload)
+                        retry_payload["max_tokens"] = min(safe_max_tokens, 512)
+                        async with sess.post(GROQ_URL, headers=headers, json=retry_payload, timeout=timeout) as r2:
+                            if r2.status == 200:
+                                data = await r2.json()
+                                choices = data.get("choices", [])
+                                if choices:
+                                    raw = choices[0].get("message", {}).get("content", "")
+                                    return sanitize_model_output(raw)
+                        break # If still 413, cascade to next provider
                     else:
                         err = await resp.text()
                         print(f"[Groq] Notice {resp.status} on {m}: {err[:120]}")
-                        if resp.status in [429, 413, 503, 404, 400]:
+                        if resp.status == 429:
+                            break # Quota limit reached on key, cascade to next provider
+                        if resp.status in [503, 404, 400]:
                             continue
             except Exception as e:
-                print(f"[Groq] Exception on {m}: {e}")
+                print(f"[Groq] Exception on {m}: {type(e).__name__} {e}")
                 continue
         return ""
 
@@ -354,9 +382,11 @@ async def call_openrouter(model: str, prompt: str, system_message: str = "You ar
     
     target_model = model if ":free" in model else f"{model}:free"
     models_to_try = [target_model] if target_model in OPENROUTER_FREE_FALLBACKS else []
-    for fb in OPENROUTER_FREE_FALLBACKS[:2]:
+    for fb in OPENROUTER_FREE_FALLBACKS:
         if fb not in models_to_try:
             models_to_try.append(fb)
+    # Limit models to try to prevent excessive cascading delays
+    models_to_try = models_to_try[:2]
 
     async def _post(sess: aiohttp.ClientSession):
         for m in models_to_try:
@@ -368,20 +398,20 @@ async def call_openrouter(model: str, prompt: str, system_message: str = "You ar
                 ]
             }
             try:
-                timeout = aiohttp.ClientTimeout(total=5)
+                timeout = aiohttp.ClientTimeout(total=7, connect=3)
                 async with sess.post(OPENROUTER_URL, headers=headers, json=payload, timeout=timeout) as response:
                     if response.status == 200:
                         data = await response.json()
                         if 'choices' in data and len(data['choices']) > 0:
                             content = data['choices'][0]['message'].get('content') or ""
                             if content:
-                                return content
+                                return sanitize_model_output(content)
                     else:
                         print(f"[OpenRouter] Notice {response.status} on {m}")
                         if response.status in [429, 502, 503, 404]:
                             continue
             except Exception as e:
-                print(f"[OpenRouter] Exception on {m}: {e}")
+                print(f"[OpenRouter] Exception on {m}: {type(e).__name__} {e}")
                 continue
         return ""
 
@@ -559,26 +589,26 @@ async def call_smart_llm(
             return res, model_id, "OpenRouter"
 
     # 3. Cross-Provider Fallback Cascade
-    # Try Groq (ultra fast 500+ tok/s)
-    if grq_key:
-        fallback_groq = "allam-2-7b" if category in ["coder", "code", "orchestrator"] else "openai/gpt-oss-20b"
+    # Priority A: Groq Cloud (Ultra-fast LPU inference, ~1-2s)
+    if grq_key and not is_groq_target:
+        fallback_groq = "qwen/qwen3.8-27b" if category in ["coder", "code"] else "openai/gpt-oss-120b"
         res = await call_groq(fallback_groq, prompt, system_message, session=session)
         if res and len(res.strip()) > 0:
-            return res, fallback_groq, "Groq (Swarm Fallback)"
+            return sanitize_model_output(res), fallback_groq, "Groq (Swarm Fallback)"
 
-    # Try Gemini (huge context & high reasoning)
+    # Priority B: Google Gemini (Flagship reasoning, 1M context)
     if gem_key and not is_gemini_target:
         fallback_gem = "gemini-2.5-flash"
         res = await call_gemini(fallback_gem, prompt, system_message, session=session)
         if res and len(res.strip()) > 0:
-            return res, fallback_gem, "Google Gemini (Swarm Fallback)"
+            return sanitize_model_output(res), fallback_gem, "Google Gemini (Swarm Fallback)"
 
-    # Try OpenRouter (open-source swarm models)
+    # Priority C: OpenRouter (Fast free models)
     if or_key and not is_openrouter_target:
-        fallback_or = "google/gemma-4-31b-it:free" if category in ["coder", "code"] else "minimax/minimax-m3:free"
+        fallback_or = "cohere/north-mini-code:free" if category in ["coder", "code"] else "nvidia/nemotron-3.5-lightning:free"
         res = await call_openrouter(fallback_or, prompt, system_message, session=session)
         if res and len(res.strip()) > 0:
-            return res, fallback_or, "OpenRouter (Swarm Fallback)"
+            return sanitize_model_output(res), fallback_or, "OpenRouter (Swarm Fallback)"
 
     # 4. Built-in Autonomous High-Quality Preview / Educational Fallback
     demo_output = generate_smart_demo_response(category, prompt)

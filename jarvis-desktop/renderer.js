@@ -497,49 +497,186 @@ function exportChatAsMarkdown() {
 }
 
 // ==============================================================================
-// 3. RICH MARKDOWN & CODE PARSING
+// 3. RICH MARKDOWN & CODE PARSING ENGINE (CLAUDE & CHATGPT QUALITY)
 // ==============================================================================
+
+// Initialize Marked with Highlight.js syntax highlighting & GFM extensions
+(function initMarkdownEngine() {
+  if (typeof marked !== 'undefined') {
+    const renderer = new marked.Renderer();
+
+    // Syntax-highlighted code block with language header & copy button
+    renderer.code = function(arg1, arg2) {
+      const isObj = (typeof arg1 === 'object' && arg1 !== null);
+      const code = (isObj ? arg1.text : arg1) || '';
+      const rawLang = (isObj ? arg1.lang : arg2) || '';
+      const language = rawLang.trim().toLowerCase();
+      let highlighted = '';
+
+      if (typeof hljs !== 'undefined' && language && hljs.getLanguage(language)) {
+        try {
+          highlighted = hljs.highlight(code, { language }).value;
+        } catch (e) {
+          highlighted = escapeHtml(code);
+        }
+      } else if (typeof hljs !== 'undefined') {
+        try {
+          highlighted = hljs.highlightAuto(code).value;
+        } catch (e) {
+          highlighted = escapeHtml(code);
+        }
+      } else {
+        highlighted = escapeHtml(code);
+      }
+
+      const displayLang = language ? language.toUpperCase() : 'CODE';
+      const encodedCode = encodeURIComponent(code);
+
+      return `
+        <div class="code-block-container">
+          <div class="code-block-header">
+            <div class="code-lang-tag">
+              <span class="code-lang-bullet"></span>
+              <span>${escapeHtml(displayLang)}</span>
+            </div>
+            <button class="copy-code-btn" data-code="${encodedCode}" title="Copy code snippet">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              <span>Copy</span>
+            </button>
+          </div>
+          <pre><code class="hljs ${language ? `language-${language}` : ''}">${highlighted}</code></pre>
+        </div>
+      `;
+    };
+
+    // Styled GFM tables
+    renderer.table = function(arg1, arg2) {
+      const isObj = (typeof arg1 === 'object' && arg1 !== null);
+      const header = (isObj ? arg1.header : arg1) || '';
+      const rows = (isObj ? arg1.rows : arg2) || '';
+      return `
+        <div class="table-responsive-wrapper">
+          <table class="styled-markdown-table">
+            <thead>${header}</thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      `;
+    };
+
+    // GitHub-style callouts / alerts: [!NOTE], [!TIP], [!IMPORTANT], [!WARNING], [!CAUTION]
+    renderer.blockquote = function(arg1) {
+      const isObj = (typeof arg1 === 'object' && arg1 !== null);
+      const text = (isObj ? arg1.text : arg1) || '';
+      const alertMatch = text.match(/^\s*<p>\s*\[\!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*(?:<br>)?([\s\S]*?)<\/p>/i);
+      if (alertMatch) {
+        const type = alertMatch[1].toUpperCase();
+        const body = alertMatch[2];
+        const typeClass = type.toLowerCase();
+        const icons = {
+          NOTE: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>',
+          TIP: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-7 7c0 2.5 1.5 4.5 3 6h8c1.5-1.5 3-3.5 3-6a7 7 0 0 0-7-7z"/></svg>',
+          IMPORTANT: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>',
+          WARNING: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+          CAUTION: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>'
+        };
+        return `
+          <div class="callout-alert ${typeClass}">
+            <div class="callout-header">
+              ${icons[type] || icons.NOTE}
+              <span class="callout-label">${type}</span>
+            </div>
+            <div class="callout-content"><p>${body}</p></div>
+          </div>
+        `;
+      }
+      return `<blockquote>${text}</blockquote>`;
+    };
+
+    marked.use({ renderer, gfm: true, breaks: true });
+  }
+})();
+
 function parseRichMarkdown(text) {
   if (!text) return '';
 
-  let html = text;
-
-  html = html.replace(/<img\s+src=["'](data:image\/[^"']+)["'][^>]*>/gi, (match, src) => {
-    return `<div class="generated-image-card"><img src="${src}" alt="AI Deliverable" class="zoomable-artifact" /></div>`;
+  // 1. Extract base64 and image deliverable tags into safe tokens
+  const images = [];
+  let cleanText = text.replace(/<img\s+src=["'](data:image\/[^"']+)["'][^>]*>/gi, (match, src) => {
+    const id = `__GODMODE_IMG_TOKEN_${images.length}__`;
+    images.push(src);
+    return id;
   });
 
-  html = html.replace(/(data:image\/(?:png|jpeg|webp|svg\+xml);base64,[A-Za-z0-9+/=]+)/g, (src) => {
-    return `<div class="generated-image-card"><img src="${src}" alt="AI Deliverable" class="zoomable-artifact" /></div>`;
+  cleanText = cleanText.replace(/(data:image\/(?:png|jpeg|webp|svg\+xml);base64,[A-Za-z0-9+/=]+)/g, (src) => {
+    const id = `__GODMODE_IMG_TOKEN_${images.length}__`;
+    images.push(src);
+    return id;
   });
 
+  // 2. Parse Markdown
+  let html = '';
+  if (typeof marked !== 'undefined' && marked.parse) {
+    try {
+      html = marked.parse(cleanText);
+    } catch (e) {
+      console.warn('[Markdown Engine] Marked parse notice, using fallback:', e);
+      html = fallbackMarkdownParser(cleanText);
+    }
+  } else {
+    html = fallbackMarkdownParser(cleanText);
+  }
+
+  // 3. Re-inject images with zoomable card container
+  images.forEach((src, idx) => {
+    const id = `__GODMODE_IMG_TOKEN_${idx}__`;
+    const cardHtml = `<div class="generated-image-card"><img src="${src}" alt="AI Deliverable" class="zoomable-artifact" loading="lazy" /></div>`;
+    html = html.split(id).join(cardHtml);
+  });
+
+  return html;
+}
+
+function fallbackMarkdownParser(text) {
+  if (!text) return '';
+  let html = escapeHtml(text);
+
+  // Fenced code blocks
   html = html.replace(/```([a-zA-Z0-9_\-+]*)\n([\s\S]*?)```/g, (match, lang, code) => {
     const language = lang.trim() || 'code';
-    const escapedCode = escapeHtml(code.trim());
     return `
       <div class="code-block-container">
         <div class="code-block-header">
-          <span>${language.toUpperCase()}</span>
+          <div class="code-lang-tag"><span class="code-lang-bullet"></span><span>${language.toUpperCase()}</span></div>
           <button class="copy-code-btn" data-code="${encodeURIComponent(code.trim())}">
-            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
             <span>Copy</span>
           </button>
         </div>
-        <pre><code>${escapedCode}</code></pre>
+        <pre><code>${code.trim()}</code></pre>
       </div>
     `;
   });
 
+  // Headers
   html = html.replace(/^### (.*$)/gim, '<h3>$1</h3>');
   html = html.replace(/^## (.*$)/gim, '<h2>$1</h2>');
   html = html.replace(/^# (.*$)/gim, '<h1>$1</h1>');
+  
+  // Emphasis
   html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
   html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
-  html = html.replace(/^\> (.*$)/gim, '<blockquote>$1</blockquote>');
-  html = html.replace(/^\s*[-*]\s+(.*$)/gim, '<li>$1</li>');
   html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
-  html = html.replace(/\n\n/g, '<p></p>');
-  html = html.replace(/\n/g, '<br>');
-
+  html = html.replace(/^\> (.*$)/gim, '<blockquote>$1</blockquote>');
+  html = html.replace(/^---$/gim, '<hr class="styled-divider">');
+  
+  // Lists
+  html = html.replace(/^\s*[-*]\s+(.*$)/gim, '<li>$1</li>');
+  html = html.replace(/(<li>[\s\S]*?<\/li>)/g, '<ul>$1</ul>');
+  
+  // Paragraphs
+  html = html.replace(/\n\n+/g, '</p><p>');
+  html = `<p>${html}</p>`;
   return html;
 }
 
@@ -564,13 +701,11 @@ function attachCodeBlockHandlers(container) {
         const span = btn.querySelector('span');
         const orig = span.textContent;
         span.textContent = 'Copied!';
-        btn.style.color = 'var(--accent-emerald)';
-        btn.style.borderColor = 'var(--accent-emerald)';
+        btn.classList.add('copied');
         setTimeout(() => {
           span.textContent = orig;
-          btn.style.color = '';
-          btn.style.borderColor = '';
-        }, 2000);
+          btn.classList.remove('copied');
+        }, 2200);
       } catch (err) {
         console.error('Clipboard copy failed:', err);
       }

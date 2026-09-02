@@ -9,16 +9,18 @@ from typing import Dict, List, Any
 
 # Provider Model Definitions
 GROQ_MODELS = {
+    "openai/gpt-oss-120b": "Groq GPT-OSS 120B",
     "qwen/qwen3.8-27b": "Groq Qwen 3.8 27B",
-    "qwen/qwen3.6-27b": "Groq Qwen 3.6 27B",
+    "openai/gpt-oss-20b": "Groq GPT-OSS 20B",
     "groq/compound": "Groq Compound MoE",
     "groq/compound-mini": "Groq Compound Mini",
-    "openai/gpt-oss-20b": "Groq GPT-OSS 20B",
+    "qwen/qwen3.6-27b": "Groq Qwen 3.6 27B",
     "allam-2-7b": "Groq ALLaM 2 7B"
 }
 
 GEMINI_MODELS = {
     "gemini-2.5-flash": "Google Gemini 2.5 Flash",
+    "gemini-2.5-pro": "Google Gemini 2.5 Pro",
     "gemini-flash-latest": "Google Gemini Flash Latest",
     "gemini-3.6-flash": "Google Gemini 3.6 Flash",
     "gemini-3.5-flash": "Google Gemini 3.5 Flash",
@@ -29,27 +31,30 @@ GEMINI_MODELS = {
 # 1. Orchestration & Brain Models (Top reasoning & planning LLMs)
 ORCHESTRATOR_MODELS = [
     "gemini-2.5-flash",
+    "openai/gpt-oss-120b",
     "qwen/qwen3.8-27b",
-    "google/gemma-4-31b-it:free",
+    "gemini-2.5-pro",
     "groq/compound",
     "minimax/minimax-m3:free",
     "gemini-flash-latest",
     "z-ai/glm-5.2:free",
     "qwen/qwen3.6-27b",
-    "google/gemma-4-26b-a4b-it:free",
+    "google/gemma-4-31b-it:free",
     "openai/gpt-oss-20b",
     "minimax/minimax-m2.7:free",
     "gemini-3.6-flash",
     "groq/compound-mini",
-    "cohere/north-mini-code:free",
-    "gemini-2.5-flash"
+    "cohere/north-mini-code:free"
 ]
 
 # 2. Coder / Software Engineering Models
 CODER_MODELS = [
     "qwen/qwen3.8-27b",
+    "openai/gpt-oss-120b",
     "gemini-2.5-flash",
     "cohere/north-mini-code:free",
+    "gemini-2.5-pro",
+    "openai/gpt-oss-20b",
     "poolside/laguna-s-2.1:free",
     "qwen/qwen3.6-27b",
     "google/gemma-4-31b-it:free",
@@ -58,62 +63,59 @@ CODER_MODELS = [
     "gemini-flash-latest",
     "google/gemma-4-26b-a4b-it:free",
     "minimax/minimax-m3:free",
-    "openai/gpt-oss-20b",
+    "openai/gpt-oss-120b",
     "poolside/laguna-s-2.1:free",
     "gemini-3.6-flash",
     "qwen/qwen3.8-27b",
     "groq/compound-mini",
-    "cohere/north-mini-code:free",
-    "google/gemma-4-31b-it:free",
-    "qwen/qwen3.6-27b",
     "gemini-2.5-flash"
 ]
 
 # 3. General Reasoning & Synthesis Models
 GENERAL_MODELS = [
     "gemini-2.5-flash",
+    "openai/gpt-oss-120b",
     "qwen/qwen3.8-27b",
+    "gemini-2.5-pro",
     "google/gemma-4-31b-it:free",
     "groq/compound",
     "minimax/minimax-m3:free",
-    "gemini-flash-latest",
     "z-ai/glm-5.2:free",
     "openai/gpt-oss-20b",
+    "inclusionai/ling-3.0-flash-fin:free",
     "google/gemma-4-26b-a4b-it:free",
-    "minimax/minimax-m2.7:free",
     "gemini-3.6-flash",
     "groq/compound-mini",
-    "inclusionai/ling-3.0-flash-fin:free",
     "qwen/qwen3.6-27b",
     "gemini-2.5-flash"
 ]
 
 # 4. Creative Writing / Storytelling Models
 CREATIVE_MODELS = [
-    "minimax/minimax-m3:free",
+    "openai/gpt-oss-120b",
     "gemini-2.5-flash",
+    "minimax/minimax-m3:free",
+    "gemini-2.5-pro",
     "google/gemma-4-31b-it:free",
     "groq/compound",
-    "minimax/minimax-m2.7:free",
     "qwen/qwen3.8-27b",
-    "z-ai/glm-5.2:free",
-    "gemini-flash-latest",
-    "google/gemma-4-26b-a4b-it:free",
-    "qwen/qwen3.6-27b"
+    "minimax/minimax-m2.7:free",
+    "nvidia/nemotron-3.5-lightning:free",
+    "openai/gpt-oss-20b"
 ]
 
 # 5. NLP Specialized Models (Sentiment, Translation, NER, QA, Summarization)
 NLP_MODELS = [
-    "gemini-2.5-flash",
-    "allam-2-7b",
-    "google/gemma-4-31b-it:free",
+    "nvidia/nemotron-3.5-lightning:free",
     "qwen/qwen3.8-27b",
-    "z-ai/glm-5.2:free",
-    "groq/compound",
+    "gemini-2.5-flash",
     "inclusionai/ling-3.0-flash-fin:free",
-    "gemini-flash-latest",
+    "openai/gpt-oss-120b",
+    "gemini-2.5-pro",
+    "google/gemma-4-31b-it:free",
+    "groq/compound",
     "minimax/minimax-m3:free",
-    "openai/gpt-oss-20b"
+    "allam-2-7b"
 ]
 
 # 6. Vision / Image Generation Models
